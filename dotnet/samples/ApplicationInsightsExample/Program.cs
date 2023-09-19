@@ -16,10 +16,10 @@ using Microsoft.SemanticKernel.Planning;
 using Microsoft.SemanticKernel.Planning.Action;
 using Microsoft.SemanticKernel.Planning.Sequential;
 using Microsoft.SemanticKernel.Planning.Stepwise;
-using Microsoft.SemanticKernel.Skills.Core;
-using Microsoft.SemanticKernel.Skills.Web;
-using Microsoft.SemanticKernel.Skills.Web.Bing;
-using NCalcSkills;
+using Microsoft.SemanticKernel.Plugins.Core;
+using Microsoft.SemanticKernel.Plugins.Web;
+using Microsoft.SemanticKernel.Plugins.Web.Bing;
+using NCalcPlugins;
 
 /// <summary>
 /// Example of telemetry in Semantic Kernel using Application Insights within console application.
@@ -35,12 +35,16 @@ public sealed class Program
     /// </remarks>
     private static LogLevel LogLevel = LogLevel.Information;
 
+    /// <summary>
+    /// The main entry point for the application.
+    /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     public static async Task Main()
     {
         var serviceProvider = GetServiceProvider();
 
         var telemetryClient = serviceProvider.GetRequiredService<TelemetryClient>();
-        var logger = serviceProvider.GetRequiredService<ILoggerFactory>();
+        var loggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
 
         using var meterListener = new MeterListener();
         using var activityListener = new ActivityListener();
@@ -48,8 +52,8 @@ public sealed class Program
         ConfigureMetering(meterListener, telemetryClient);
         ConfigureTracing(activityListener, telemetryClient);
 
-        var kernel = GetKernel(logger);
-        var planner = GetSequentialPlanner(kernel, logger);
+        var kernel = GetKernel(loggerFactory);
+        var planner = GetSequentialPlanner(kernel, loggerFactory);
 
         try
         {
@@ -92,7 +96,7 @@ public sealed class Program
 
         services.AddLogging(loggingBuilder =>
         {
-            loggingBuilder.AddFilter<ApplicationInsightsLoggerProvider>(typeof(Program).FullName, LogLevel);
+            loggingBuilder.AddFilter<ApplicationInsightsLoggerProvider>(logLevel => logLevel == LogLevel);
             loggingBuilder.SetMinimumLevel(LogLevel);
         });
 
@@ -106,7 +110,7 @@ public sealed class Program
     {
         var folder = RepoFiles.SampleSkillsPath();
         var bingConnector = new BingConnector(Env.Var("Bing__ApiKey"));
-        var webSearchEngineSkill = new WebSearchEngineSkill(bingConnector);
+        var webSearchEngineSkill = new WebSearchEnginePlugin(bingConnector);
 
         var kernel = new KernelBuilder()
             .WithLoggerFactory(loggerFactory)
@@ -119,8 +123,8 @@ public sealed class Program
         kernel.ImportSemanticSkillFromDirectory(folder, "SummarizeSkill", "WriterSkill");
 
         kernel.ImportSkill(webSearchEngineSkill, "WebSearch");
-        kernel.ImportSkill(new LanguageCalculatorSkill(kernel), "advancedCalculator");
-        kernel.ImportSkill(new TimeSkill(), "time");
+        kernel.ImportSkill(new LanguageCalculatorPlugin(kernel), "advancedCalculator");
+        kernel.ImportSkill(new TimePlugin(), "time");
 
         return kernel;
     }

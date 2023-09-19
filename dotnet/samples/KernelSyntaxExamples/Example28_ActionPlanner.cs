@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Orchestration;
 using Microsoft.SemanticKernel.Planning;
+using Microsoft.SemanticKernel.Planning.Action;
 using RepoUtils;
 
 // ReSharper disable once InconsistentNaming
@@ -15,19 +16,27 @@ public static class Example28_ActionPlanner
         Console.WriteLine("======== Action Planner ========");
         var kernel = new KernelBuilder()
             .WithLoggerFactory(ConsoleLogger.LoggerFactory)
-            .WithOpenAIChatCompletionService(TestConfiguration.OpenAI.ChatModelId, TestConfiguration.OpenAI.ApiKey)
+            .WithAzureChatCompletionService(
+                TestConfiguration.AzureOpenAI.ChatDeploymentName,
+                TestConfiguration.AzureOpenAI.Endpoint,
+                TestConfiguration.AzureOpenAI.ApiKey)
             .Build();
 
         string folder = RepoFiles.SampleSkillsPath();
         kernel.ImportSemanticSkillFromDirectory(folder, "SummarizeSkill");
         kernel.ImportSemanticSkillFromDirectory(folder, "WriterSkill");
+        kernel.ImportSemanticSkillFromDirectory(folder, "FunSkill");
+
+        // Create an optional config for the ActionPlanner. Use this to exclude skills and functions if needed
+        var config = new ActionPlannerConfig();
+        config.ExcludedFunctions.Add("MakeAbstractReadable");
 
         // Create an instance of ActionPlanner.
         // The ActionPlanner takes one goal and returns a single function to execute.
-        var planner = new ActionPlanner(kernel);
+        var planner = new ActionPlanner(kernel, config: config);
 
         // We're going to ask the planner to find a function to achieve this goal.
-        var goal = "Write a poem about Cleopatra.";
+        var goal = "Write a joke about Cleopatra in the style of Hulk Hogan.";
 
         // The planner returns a plan, consisting of a single function
         // to execute and achieve the goal requested.
